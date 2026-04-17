@@ -15,57 +15,55 @@ if root_dir not in sys.path:
     sys.path.append(root_dir)
 
 # Import bot and dp from bot.py
-# We import inside the handler to speed up Lambda cold start if needed, 
-# but for now we keep them at module level for simplicity.
 try:
     from bot import dp, bot
     from config import BOT_TOKEN
 except Exception as e:
-    logger.error(f"Critical import error: {e}")
-    # Define skeletons to avoid crashes on startup
+    logger.error(f"Import error: {e}")
     dp = None
     bot = None
 
 app = FastAPI()
 
-async def process_update(request: Request):
-    if dp is None or bot is None:
-        return {"error": "Bot not initialized"}, 500
-    
-    try:
-        data = await request.json()
-        logger.info(f"Update received: {data}")
-        
-        update = types.Update.model_validate(data, context={"bot": bot})
-        await dp.feed_update(bot, update)
-        return {"ok": True}
-    except Exception as e:
-        logger.error(f"Error handling update: {e}", exc_info=True)
-        return {"ok": False, "error": str(e)}
-
 @app.api_route("/{path_name:path}", methods=["GET", "POST"])
 async def catch_all(path_name: str, request: Request):
-    """
-    Catch-all route to handle traffic regardless of the path Vercel provides.
-    """
-    logger.info(f"Catch-all hit: {request.method} {path_name}")
-    
     if request.method == "POST":
-        return await process_update(request)
+        try:
+            data = await request.json()
+            logger.info(f"Update: {data}")
+            
+            # Use the most basic update creation (known to work in Turn 31)
+            update = types.Update(**data)
+            
+            # Feed the update into the dispatcher
+            await dp.feed_update(bot, update)
+            return {"ok": True}
+        except Exception as e:
+            logger.error(f"Error: {e}", exc_info=True)
+            return {"ok": False, "error": str(e)}
     
-    # For GET requests, return health info
-    return {
-        "status": "ready",
-        "bot_initialized": bot is not None,
-        "path_received": path_name,
-        "method": request.method
-    }
+    # Handle GET
+    if path_name == "api/check":
+        try:
+            me = await bot.get_me()
+            # Check for handlers
+            handler_count = len(dp.message.handlers) + len(dp.callback_query.handlers)
+            return {
+                "status": "ok",
+                "bot": me.username,
+                "token_prefix": BOT_TOKEN[:10] if BOT_TOKEN else "missing",
+                "handlers_registered": handler_count,
+                "venv": sys.version
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
-# Also handle the true root
+    return {"status": "bot is running", "at": path_name}
+
 @app.get("/")
 async def root_get():
-    return {"status": "bot is running", "at": "root"}
+    return {"status": "bot is running", "path": "/"}
 
 @app.post("/")
 async def root_post(request: Request):
-    return await process_update(request)
+    return await catch_all("", request)
