@@ -4,7 +4,8 @@ from pathlib import Path
 from aiogram.types import FSInputFile
 BASE_DIR = Path(__file__).resolve().parent
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -125,8 +126,10 @@ MENAR_LEVELS = {
 
 # ================= BOT =================
 
-bot = Bot(BOT_TOKEN)
-dp = Dispatcher()
+# Initialize bot and dispatcher
+bot = Bot(token=BOT_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
 # /start
 @dp.message(Command("start"))
