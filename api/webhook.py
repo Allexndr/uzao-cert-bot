@@ -18,7 +18,7 @@ app = FastAPI()
 async def index():
     return {"status": "bot is running"}
 
-@app.post("/api/webhook")
+@app.post("/")
 async def webhook_handler(request: Request):
     """
     Handle incoming Telegram updates.
