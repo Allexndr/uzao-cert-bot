@@ -10,9 +10,6 @@ from aiogram.filters import Command
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Error storage
-LAST_ERRORS = []
-
 # Add root directory to sys.path to import bot.py and config.py
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(current_dir)
@@ -25,30 +22,18 @@ try:
     from config import BOT_TOKEN
 except Exception as e:
     logger.error(f"Import error: {e}")
-    LAST_ERRORS.append(f"Import Error: {traceback.format_exc()}")
     dp = None
     bot = None
 
 app = FastAPI()
 
-# --- Emergency Handler ---
-async def emergency_start(message: types.Message):
-    """
-    This handler is registered directly in the entry point.
-    If this works, it means the bot is alive but bot.py handlers are failing.
-    """
-    try:
-        await message.answer("🚨 EMERGENCY START ACTIVE 🚨\n\nIf you see this, the bot is connected. Now processing your request...")
-    except Exception as e:
-        logger.error(f"Emergency handler error: {e}")
-        LAST_ERRORS.append(f"Answer Error: {str(e)}")
-
-# Add the emergency handler to the dispatcher
+# --- Catch-all handler for debugging ---
 if dp:
-    # Use a high priority handler to bypass others
-    @dp.message(Command("emergency"))
-    async def msg_emergency(message: types.Message):
-        await message.answer("Diagnostic: Bot is receiving messages.")
+    @dp.message()
+    async def match_all_handler(message: types.Message):
+        """Matches everything to prove the bot can hear and speak."""
+        logger.info(f"MATCH ALL hit by {message.chat.id}")
+        await message.answer(f"I HEAR YOU! Your ID: {message.chat.id}. Message was: {message.text}")
 
 async def process_update(request: Request):
     if dp is None or bot is None:
@@ -67,7 +52,17 @@ async def process_update(request: Request):
     except Exception as e:
         err_msg = traceback.format_exc()
         logger.error(f"Execution Error: {err_msg}")
-        LAST_ERRORS.append(f"Execution Error: {err_msg}")
+        return {"ok": False, "error": str(e)}
+
+@app.get("/api/test_msg")
+async def test_msg(chat_id: int):
+    """
+    Directly tests if the bot can send a message.
+    """
+    try:
+        await bot.send_message(chat_id=chat_id, text="🚀 TEST MESSAGE FROM VERCEL")
+        return {"ok": True, "message": "Test sent"}
+    except Exception as e:
         return {"ok": False, "error": str(e)}
 
 @app.api_route("/{path_name:path}", methods=["GET", "POST"])
@@ -75,20 +70,16 @@ async def catch_all(path_name: str, request: Request):
     if request.method == "POST":
         return await process_update(request)
     
-    # Handle GET
     if path_name == "api/check":
         try:
             me = await bot.get_me() if bot else "Not Init"
             return {
                 "status": "ok",
                 "bot": me.username if not isinstance(me, str) else me,
-                "handlers": len(dp.message.handlers) if dp else 0
+                "token_prefix": BOT_TOKEN[:10] if BOT_TOKEN else "none"
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}
-            
-    if path_name == "api/logs":
-        return {"errors": LAST_ERRORS[-10:]} # Return last 10 errors
 
     return {"status": "bot is running", "path": path_name}
 
