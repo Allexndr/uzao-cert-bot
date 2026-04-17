@@ -1,0 +1,93 @@
+from reportlab.lib.units import mm
+
+from pathlib import Path
+from pathlib import Path
+from reportlab.lib import colors
+
+from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
+
+
+
+    
+def draw_english_level_3(c, data):
+    # Настройки шрифта и цвета
+    font_name = "Nunito-Black"
+    font_size = 48
+    c.setFont(font_name, font_size)
+    c.setFillColorRGB(227/255, 27/255, 64/255)
+
+    # Координаты и ширина для текста
+    x, y = 19.7*mm, 135*mm
+    max_width = 160*mm
+    line_height = 1.2  # множитель высоты строки
+
+    # Разделяем фамилию и остальные слова
+    parts = data["student_name"].split()
+    if len(parts) == 0:
+        return
+    last_name = parts[0]  # первая часть — фамилия
+    rest_name = " ".join(parts[1:])  # остальные слова — имя и отчество
+
+    # Рисуем фамилию (на одной строке)
+    c.drawString(x, y, last_name)
+    y -= font_size * line_height
+
+    # Рисуем оставшиеся слова с переносом
+    line = ""
+    words = rest_name.split()
+    for word in words:
+        test_line = line + (" " if line else "") + word
+        if stringWidth(test_line, font_name, font_size) <= max_width:
+            line = test_line
+        else:
+            c.drawString(x, y, line)
+            y -= font_size * line_height
+            line = word
+    if line:
+        c.drawString(x, y, line)
+    
+    
+    
+   
+   
+
+    # ФИО педагога
+    c.setFont("Arial", 12)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 64.4*mm, 18.9*mm  
+    c.drawString(x, y, data["teacher"])
+
+
+
+    # Год
+    c.setFont("Arial", 11)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 35*mm, 99*mm  
+    c.drawCentredString(x, y, data["year"])
+
+    # lisr
+    c.setFont("Arialb", 11)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 46.3*mm, 85.8*mm  
+    c.drawCentredString(x, y, data["listening"])
+
+    # reading
+    c.setFont("Arialb", 11)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 46.3*mm, 77.5*mm  
+    c.drawCentredString(x, y, data["reading"])
+
+    # writing
+    c.setFont("Arialb", 11)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 46.3*mm, 70*mm  
+    c.drawCentredString(x, y, data["writing"])
+
+    # speaking
+    c.setFont("Arialb", 11)
+    c.setFillColorRGB(0/255, 0/255, 0/255)
+    x, y = 46.3*mm, 61.3*mm  
+    c.drawCentredString(x, y, data["speaking"])
+
+
