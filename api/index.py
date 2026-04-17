@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-import asyncio
 from fastapi import FastAPI, Request, Response
 from aiogram import Bot, Dispatcher, types
 
@@ -21,34 +20,34 @@ from config import BOT_TOKEN
 
 app = FastAPI()
 
-@app.get("/")
-async def index():
-    return {"status": "bot is running", "path": "/"}
-
-@app.post("/")
-async def webhook_handler(request: Request):
-    """
-    Simpler webhook handler to ensure basic responsiveness.
-    """
+# Function to process updates
+async def process_update(request: Request):
     try:
         data = await request.json()
         logger.info(f"Update received: {data}")
-        
-        # Hydrate the Update object
-        update = types.Update(**data)
-        
-        # Feed the update into the dispatcher
-        # Passing bot here is critical for context
+        update = types.Update.model_validate(data, context={"bot": bot})
         await dp.feed_update(bot, update)
-        
         return {"ok": True}
     except Exception as e:
         logger.error(f"Error handling update: {e}", exc_info=True)
-        return Response(content=str(e), status_code=200) # Always 200 to stop Telegram retries if we have a bug
+        # return 200 even on error to stop Telegram from retrying 
+        return {"ok": False, "error": str(e)}
 
-# Optional: Health check route that also verifies bot connection
+@app.get("/")
+async def health_root():
+    return {"status": "bot is running", "path": "/"}
+
+@app.post("/")
+async def webhook_root(request: Request):
+    return await process_update(request)
+
+# Catch-all for common webhook paths to avoid 404
+@app.post("/api/webhook")
+async def webhook_legacy(request: Request):
+    return await process_update(request)
+
 @app.get("/api/health")
-async def health():
+async def health_api():
     try:
         me = await bot.get_me()
         return {"status": "ok", "bot": me.username}
